@@ -22,10 +22,23 @@ The hackathon produces the dataset and the model. The lecture project wraps that
 | Dataset | Role | What we checked |
 |---|---|---|
 | Context is Key (`ServiceNow/context-is-key` on Hugging Face) | TimeNet PR and evaluation benchmark | One Parquet file, Apache-2.0 on the dataset card, fits TimeNet's existing Hugging Face base connector. Only 355 instances and no training split, so it cannot be the fine-tuning set. |
-| Time-MMD (`AdityaLab/Time-MMD` on GitHub) | Fine-tuning data, second connector if time allows | Plain CSVs: one numerical file and two text files (reports, search results) for each of 10 domain folders, including Economy. The repo has no LICENSE file. The paper states ODC-By 1.0 and says the sources are authorized for non-commercial distribution. |
+| Time-MMD (`AdityaLab/Time-MMD` on GitHub) | Fine-tuning data and second connector PR | Plain CSVs: one numerical file and two text files (reports, search results) for each of 10 domain folders, including Economy. The repo has no LICENSE file. The paper states ODC-By 1.0 and says the sources are authorized for non-commercial distribution. |
 | UCI Online Retail II or synthetic client data | "Client engagement" in the lecture demo | Not inspected yet. Not needed before 23 Nov. |
 
 Context is Key is the easiest to integrate. Each row has a background text, a scenario text, a past series and a future series, which maps onto a TimeNet `ForecastingTask` with the text as context.
+
+### Organizers' answers (16 Nov)
+
+- Fine-tuning on other data and evaluating on Context is Key is allowed. The submission must say which data we trained on and which we evaluated on.
+- A Time-MMD connector PR is accepted. On the dataset card: `license: ODC-By-1.0`, `source_url` pointing to the repo, and a line in the description saying that the repo has no LICENSE file and that the paper describes the sources as authorized for non-commercial distribution. Do not rehost the data in the PR.
+
+### Local setup (done 16 Nov)
+
+TimeNet 0.12.0 is cloned to `TimeNet/`, `make sync` ran, and `timenet/hello-world` builds and reads back. The fork `bwinner1/TimeNet` is the `origin` remote and `OpenTSLM/TimeNet` is `upstream`.
+
+### Context is Key connector (written 16 Nov, not yet committed or pushed)
+
+Branch `feat/connector-context-is-key`, folder `packages/timenet-connectors/src/timenet_connectors/datasets/servicenow/context_is_key/`. Dataset id `servicenow/context-is-key`: 355 `ForecastingTask`s in the test split, each from a history record to a future record, with the text context as the prompt. The full build from Hugging Face works, and `make check`, `make test-connectors` and `make license-check` pass. `make test` has one failure that is unrelated to the connector: a provenance test matches git's English error text and this machine's git is German. It passes with `LC_ALL=C`.
 
 ## Phase 1: hackathon (16–22 Nov)
 
@@ -79,6 +92,5 @@ Orchestrator LLM (planner)
 
 1. Who are A–D on the hackathon team, and who is the fifth member? The fifth can start on the business-case evidence this week.
 2. Buyer: consulting firm on fixed-fee engagements, or corporate FP&A team. Decide by 25 Nov. Both use the same agent; only the ROI model and the story differ.
-3. Organizers' answers to the two questions from Monday (training/evaluation split, Time-MMD license).
-4. Compute after the hackathon: the Nebius credits may be used up. The agent only needs inference, so a small GPU or CPU inference may be enough.
-5. Agent framework in Python (for example LangGraph or the Claude Agent SDK). Decide in the week of 23 Nov.
+3. Compute after the hackathon: the Nebius credits may be used up. The agent only needs inference, so a small GPU or CPU inference may be enough.
+4. Agent framework in Python (for example LangGraph or the Claude Agent SDK). Decide in the week of 23 Nov.
