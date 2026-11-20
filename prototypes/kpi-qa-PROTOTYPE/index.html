@@ -1,0 +1,73 @@
+<!doctype html><html><head><meta charset="utf-8"><title>PROTOTYPE – KPI Q&A dashboard</title>
+<style>
+:root{--ink:#1c2430;--mut:#6b7686;--line:#dfe4ea;--acc:#1d5fd1;--ok:#17803d;--bad:#c0392b;--warn:#b7791f}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,sans-serif;color:var(--ink);background:#f6f8fa}
+header{padding:12px 20px;background:#fff;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center}
+header b{font-size:16px}.tag{background:#fff3cd;color:#8a6d00;padding:2px 8px;border-radius:10px;font-size:12px}
+main{max-width:1200px;margin:0 auto;padding:16px 20px}
+.bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.bar label{color:var(--mut);font-size:12px}select,input[type=text]{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px}
+#chart{background:#fff;border:1px solid var(--line);border-radius:8px;margin-top:12px;padding:8px}
+#chartcap{color:var(--mut);font-size:12px;padding:2px 6px}
+.ask{display:flex;gap:8px;margin:12px 0 6px}.ask input{flex:1;font-size:15px;padding:9px 12px}
+button{font:inherit;padding:8px 14px;border:0;border-radius:6px;background:var(--acc);color:#fff;cursor:pointer}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.chip{background:#fff;color:var(--ink);border:1px solid var(--line);padding:3px 10px;font-size:12px;border-radius:12px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px}.card h4{margin:0 0 6px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.q{font-weight:600;margin-top:16px}.sub{color:var(--mut);font-size:12px}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+details{margin-top:8px}summary{cursor:pointer;color:var(--acc);font-size:12px}pre{background:#f1f4f8;padding:8px;border-radius:6px;overflow:auto;font-size:12px;margin:6px 0}
+.ans{font-size:15px}
+</style></head><body>
+<header><b>KPI Q&amp;A dashboard</b><span class="tag">PROTOTYPE – wipe me</span><span class="sub">Time-MMD data · left: code-computed, checked answer · right: released OpenTSLM checkpoint (not fine-tuned by us)</span></header>
+<main>
+<div class="bar">
+ <span><label>Series</label><br><select id="series"></select></span>
+ <span><label>Model window</label><br><select id="window"><option>12</option><option selected>24</option><option>36</option><option>52</option></select></span>
+ <span><label>Checkpoint</label><br><select id="model"></select></span>
+ <span><label>Model prompt</label><br><select id="mode"><option value="caption">its trained caption prompt</option><option value="question">my question as the prompt</option></select></span>
+ <label><input type="checkbox" id="context"> add name/unit/dates text</label>
+ <label><input type="checkbox" id="live"> run model live (needs GPU)</label>
+</div>
+<div id="biz" class="card" style="margin-top:12px;display:none"></div>
+<div id="chart"><svg id="svg" width="100%" height="230" viewBox="0 0 1160 230" preserveAspectRatio="none"></svg><div id="chartcap"></div></div>
+<div class="ask"><input id="q" type="text" placeholder="Ask about the series, e.g. “What happened in March 2024?”"><button id="go">Ask</button></div>
+<div class="chips" id="chips"></div>
+<div id="log"></div>
+</main>
+<script>
+let D={},cur=null;const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const CH=["What is the forecast?","Was April 2020 unusual?","What happened in the latest period?","Is this normal for the time of year?","How does it compare with a year ago?","Is this a record?","How long has it been moving this way?","What drove it?","Why did it change?"];
+async function init(){D=await (await fetch('/api/series')).json();
+ for(const k in D){if(k[0]!='_')$('series').add(new Option(D[k].name+' ('+D[k].freq+(D[k].biz?', Swiss':'')+')',k))}
+ D._models.forEach(m=>$('model').add(new Option(m,m)));
+ $('chips').innerHTML=CH.map(c=>`<button class="chip">${c}</button>`).join('');
+ document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{$('q').value=b.textContent;ask()});
+ $('series').onchange=()=>{draw();showBiz()};$('window').onchange=()=>draw(cur);draw()}
+function draw(hi,fc){const S=D[$('series').value],n=S.values.length,show=S.freq=='M'?120:260,a=Math.max(0,n-show),v=S.values.slice(a),H=fc?fc.values.length:0;
+ cur=hi==null?n-1:hi;const w=+$('window').value;let lo=Math.min(...v),mx=Math.max(...v);const X=i=>10+(i-a)/(n-1-a+H)*1140;if(fc){lo=Math.min(lo,...fc.band.map(b=>b[0]));mx=Math.max(mx,...fc.band.map(b=>b[1]))}const Y=y=>215-(y-lo)/(mx-lo||1)*200;
+ const wa=Math.max(a,cur-w+1);let h=`<rect x="${X(wa)}" y="0" width="${X(cur)-X(wa)}" height="230" fill="#1d5fd1" opacity=".08"/>`;
+ h+=`<polyline fill="none" stroke="#1c2430" stroke-width="1.5" points="${v.map((y,j)=>X(a+j)+','+Y(y)).join(' ')}"/>`;
+ if(fc){const pts=[[n-1,S.values[n-1]],...fc.values.map((y,k)=>[n+k,y])];h+=`<polygon fill="#17803d" opacity=".15" points="${[[n-1,S.values[n-1]],...fc.band.map((b,k)=>[n+k,b[1]])].map(p=>X(p[0])+','+Y(p[1])).join(' ')} ${[...fc.band.map((b,k)=>[n+k,b[0]]),[n-1,S.values[n-1]]].reverse().map(p=>X(p[0])+','+Y(p[1])).join(' ')}"/><polyline fill="none" stroke="#17803d" stroke-width="2" stroke-dasharray="5 4" points="${pts.map(p=>X(p[0])+','+Y(p[1])).join(' ')}"/>`}
+ if(cur>=a)h+=`<circle cx="${X(cur)}" cy="${Y(S.values[cur])}" r="5" fill="#c0392b"/>`;
+ $('svg').innerHTML=h;const lab=i=>S.dates[i];
+ $('chartcap').textContent=`${S.name} · ${S.unit} · last ${v.length} of ${n} periods · shaded = the ${w} periods the model would see · red dot = ${lab(cur)}`}
+async function ask(){const q=$('q').value.trim();if(!q)return;
+ const body={series:$('series').value,question:q,window:+$('window').value,mode:$('mode').value,model:$('model').value,context:$('context').checked,live:$('live').checked};
+ const r=await (await fetch('/api/ask',{method:'POST',body:JSON.stringify(body)})).json();
+ const box=document.createElement('div');
+ if(r.error){box.innerHTML=`<div class="q">${esc(q)}</div><div class="card bad">${esc(r.error)}</div>`}
+ else{draw(r.i,r.forecast);box.innerHTML=`<div class="q">${esc(q)} <span class="sub">· ${esc(r.period)} · ${esc(r.title)} · ${esc(r.level)}</span></div><div class="pair">${codeCard(r)}${modelCard(r.model)}</div>`}
+ $('log').prepend(box)}
+function codeCard(r){const ck=r.checks.map(c=>`<span class="${c.ok?'ok':'bad'}">${c.ok?'✔':'✘'}</span> ${esc(c.part)} <span class="sub">[${c.op}]</span>`).join('<br>');
+ return `<div class="card"><h4>Code: computed and checked</h4><div class="ans ${r.declined?'warn':''}">${esc(r.text)}</div>${ck?`<div style="margin-top:6px">${ck}</div>`:''}
+ <details><summary>Calculation path</summary><pre>${esc(r.path.join('\n'))}</pre></details></div>`}
+function modelCard(m){let b;
+ if(m.status=='ok'){const c=m.check,bad=c.not_derivable.length;
+  b=`<div class="ans">${esc(m.output)}</div><div style="margin-top:6px" class="sub">${esc(m.repo)} · ${m.seconds}s</div>
+  <div style="margin-top:6px">Numbers in the text: ${c.numbers}, <span class="${bad?'bad':'ok'}">${bad?bad+' not derivable from the window: '+esc(c.not_derivable.join(', ')):'all derivable'}</span><br>
+  Direction: model says <b>${c.direction_said}</b>, data over the window is <b>${c.direction_actual}</b> ${c.direction_ok==null?'':c.direction_ok?'<span class="ok">✔</span>':'<span class="bad">✘</span>'}</div>`}
+ else b=`<div class="${m.status=='error'?'bad':'warn'}">${esc(m.message)}</div>`;
+ return `<div class="card"><h4>OpenTSLM released checkpoint (pretrained, not fine-tuned by us)</h4>${b}</div>`}
+$('go').onclick=ask;$('q').addEventListener('keydown',e=>{if(e.key=='Enter')ask()});init();
+</script></body></html>
