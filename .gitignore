@@ -1,1 +1,6 @@
 TimeNet/
+
+# prototype data is downloaded, not committed (public repo, mixed licences)
+prototypes/*/data/
+prototypes/*/model_outputs.json
+__pycache__/
