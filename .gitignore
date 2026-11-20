@@ -4,3 +4,6 @@ TimeNet/
 prototypes/*/data/
 prototypes/*/model_outputs.json
 __pycache__/
+.venv/
+.pytest_cache/
+*.egg-info/
